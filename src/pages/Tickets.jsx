@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
@@ -6,47 +6,12 @@ import {
     DatabaseOutlined,
     FileAddOutlined,
 } from '@ant-design/icons';
-import { Button, Layout, Menu, theme, Table, Tag, Space } from 'antd';
-import { Link } from 'react-router-dom'; // Импортируем Link
+import { Button, Layout, Menu, theme, Table, Tag, Space, Spin } from 'antd';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 const { Header, Sider, Content } = Layout;
 const { Column } = Table;
-
-// Пример данных о заявках
-const data = [
-    {
-        key: '1',
-        id: '001',
-        date: '2023-10-01',
-        status: 'Новая',
-        description: 'Заявка на ремонт компьютера',
-        priority: 'Высокий',
-    },
-    {
-        key: '2',
-        id: '002',
-        date: '2023-10-02',
-        status: 'В работе',
-        description: 'Заявка на установку ПО',
-        priority: 'Средний',
-    },
-    {
-        key: '3',
-        id: '003',
-        date: '2023-10-03',
-        status: 'Завершённая',
-        description: 'Заявка на настройку сети',
-        priority: 'Низкий',
-    },
-    {
-        key: '4',
-        id: '004',
-        date: '2023-10-04',
-        status: 'Отменённая',
-        description: 'Заявка на замену оборудования',
-        priority: 'Высокий',
-    },
-];
 
 // Цвета для тегов статусов
 const statusColors = {
@@ -58,9 +23,32 @@ const statusColors = {
 
 const Tickets = () => {
     const [collapsed, setCollapsed] = useState(false);
+    const [tickets, setTickets] = useState([]);
+    const [loading, setLoading] = useState(true);
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
+
+    // Получение данных о заявках
+    useEffect(() => {
+        const fetchTickets = async () => {
+            try {
+                const token = localStorage.getItem('token'); // Получаем токен из localStorage
+                const response = await axios.get('http://localhost:8080/tickets', {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                setTickets(response.data);
+            } catch (error) {
+                console.error('Ошибка при загрузке заявок:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchTickets();
+    }, []);
 
     return (
         <Layout style={{ minHeight: '100vh', display: 'flex' }}>
@@ -84,7 +72,7 @@ const Tickets = () => {
                         {
                             key: '3',
                             icon: <FileAddOutlined />,
-                            label: <Link to={'/create'}>Создать</Link>
+                            label: <Link to="/create">Создать</Link>, // Ссылка на страницу создания заявки
                         },
                     ]}
                 />
@@ -117,59 +105,63 @@ const Tickets = () => {
                     }}
                 >
                     <h2>Все заявки</h2>
-                    <Table dataSource={data} pagination={{ pageSize: 5 }}>
-                        {/* Колонка с номером заявки */}
-                        <Column title="Номер заявки" dataIndex="id" key="id" />
+                    {loading ? (
+                        <Spin size="large" />
+                    ) : (
+                        <Table dataSource={tickets} pagination={{ pageSize: 5 }} rowKey="id">
+                            {/* Колонка с номером заявки */}
+                            <Column title="Номер заявки" dataIndex="id" key="id" />
 
-                        {/* Колонка с датой */}
-                        <Column title="Дата" dataIndex="date" key="date" />
+                            {/* Колонка с датой */}
+                            <Column title="Дата" dataIndex="date" key="date" />
 
-                        {/* Колонка с описанием */}
-                        <Column title="Описание" dataIndex="description" key="description" />
+                            {/* Колонка с описанием */}
+                            <Column title="Описание" dataIndex="description" key="description" />
 
-                        {/* Колонка со статусом */}
-                        <Column
-                            title="Статус"
-                            dataIndex="status"
-                            key="status"
-                            render={(status) => (
-                                <Tag color={statusColors[status] || 'gray'}>{status}</Tag>
-                            )}
-                        />
+                            {/* Колонка со статусом */}
+                            <Column
+                                title="Статус"
+                                dataIndex="status"
+                                key="status"
+                                render={(status) => (
+                                    <Tag color={statusColors[status] || 'gray'}>{status}</Tag>
+                                )}
+                            />
 
-                        {/* Колонка с приоритетом */}
-                        <Column
-                            title="Приоритет"
-                            dataIndex="priority"
-                            key="priority"
-                            render={(priority) => (
-                                <Tag
-                                    color={
-                                        priority === 'Высокий'
-                                            ? 'red'
-                                            : priority === 'Средний'
-                                                ? 'yellow'
-                                                : 'green'
-                                    }
-                                >
-                                    {priority}
-                                </Tag>
-                            )}
-                        />
+                            {/* Колонка с приоритетом */}
+                            <Column
+                                title="Приоритет"
+                                dataIndex="priority"
+                                key="priority"
+                                render={(priority) => (
+                                    <Tag
+                                        color={
+                                            priority === 'Высокий'
+                                                ? 'red'
+                                                : priority === 'Средний'
+                                                    ? 'yellow'
+                                                    : 'green'
+                                        }
+                                    >
+                                        {priority}
+                                    </Tag>
+                                )}
+                            />
 
-                        {/* Колонка с действиями */}
-                        <Column
-                            title="Действия"
-                            key="actions"
-                            render={(_, record) => (
-                                <Space size="middle">
-                                    <Link to={`/ticket/${record.id}`}>
-                                        <Button>Подробнее</Button>
-                                    </Link>
-                                </Space>
-                            )}
-                        />
-                    </Table>
+                            {/* Колонка с действиями */}
+                            <Column
+                                title="Действия"
+                                key="actions"
+                                render={(_, record) => (
+                                    <Space size="middle">
+                                        <Link to={`/ticket/${record.id}`}>
+                                            <Button>Подробнее</Button>
+                                        </Link>
+                                    </Space>
+                                )}
+                            />
+                        </Table>
+                    )}
                 </Content>
             </Layout>
         </Layout>

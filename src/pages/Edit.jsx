@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Descriptions, Tag, Button, Layout, Menu, theme, Select, message, Input } from 'antd';
 import { Link } from 'react-router-dom';
@@ -9,41 +9,11 @@ import {
     DatabaseOutlined,
     FileAddOutlined,
 } from '@ant-design/icons';
+import axios from 'axios'; // Импортируем axios
 
 const { Header, Sider, Content } = Layout;
 const { Option } = Select;
 const { TextArea } = Input;
-
-// Пример данных о заявках (обычно данные загружаются с сервера)
-const tickets = [
-    {
-        id: '001', // ID заявки — строка
-        date: '2023-10-01',
-        status: 'Новая',
-        description: 'Заявка на ремонт компьютера',
-        priority: 'Высокий',
-        assignedTo: 'Иван Иванов',
-        comments: 'Не включается компьютер после грозы.',
-    },
-    {
-        id: '002', // ID заявки — строка
-        date: '2023-10-02',
-        status: 'В работе',
-        description: 'Заявка на установку ПО',
-        priority: 'Средний',
-        assignedTo: 'Петр Петров',
-        comments: 'Необходимо установить Microsoft Office.',
-    },
-    {
-        id: '003', // ID заявки — строка
-        date: '2023-10-03',
-        status: 'Завершённая',
-        description: 'Заявка на настройку сети',
-        priority: 'Низкий',
-        assignedTo: 'Сергей Сергеев',
-        comments: 'Настроить Wi-Fi в офисе.',
-    },
-];
 
 // Цвета для тегов статусов
 const statusColors = {
@@ -56,21 +26,30 @@ const statusColors = {
 const Edit = () => {
     const { ticketId } = useParams(); // Получаем ID заявки из URL
     const [collapsed, setCollapsed] = useState(false);
-    const [selectedStatus, setSelectedStatus] = useState(''); // Состояние для выбранного статуса
-    const [description, setDescription] = useState(''); // Состояние для описания
-    const [priority, setPriority] = useState(''); // Состояние для приоритета
-    const [assignedTo, setAssignedTo] = useState(''); // Состояние для назначенного
-    const [comments, setComments] = useState(''); // Состояние для комментариев
+    const [selectedStatus, setSelectedStatus] = useState('');
+    const [description, setDescription] = useState('');
+    const [priority, setPriority] = useState('');
+    const [assignedTo, setAssignedTo] = useState('');
+    const [comments, setComments] = useState('');
+    const [ticket, setTicket] = useState(null); // Состояние для заявки
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
 
-    const ticket = tickets.find((ticket) => ticket.id === ticketId); // Находим заявку по ID
-    console.log('Найденная заявка:', ticket); // Отладочная информация
+    // Загрузка данных о заявке при монтировании компонента
+    useEffect(() => {
+        const fetchTicket = async () => {
+            try {
+                const response = await axios.get(`http://localhost:8080/tickets/${ticketId}`);
+                setTicket(response.data);
+            } catch (error) {
+                console.error('Ошибка при загрузке заявки:', error);
+                message.error('Не удалось загрузить заявку');
+            }
+        };
 
-    if (!ticket) {
-        return <div>Заявка не найдена</div>;
-    }
+        fetchTicket();
+    }, [ticketId]);
 
     // Обработчик изменения статуса
     const handleStatusChange = (value) => {
@@ -98,15 +77,29 @@ const Edit = () => {
     };
 
     // Обработчик нажатия на кнопку "Редактировать"
-    const handleEdit = () => {
-        if (selectedStatus) ticket.status = selectedStatus;
-        if (description) ticket.description = description;
-        if (priority) ticket.priority = priority;
-        if (assignedTo) ticket.assignedTo = assignedTo;
-        if (comments) ticket.comments = comments;
+    const handleEdit = async () => {
+        const updatedTicket = {
+            ...ticket,
+            status: selectedStatus || ticket.status,
+            description: description || ticket.description,
+            priority: priority || ticket.priority,
+            assignedTo: assignedTo || ticket.assignedTo,
+            comments: comments || ticket.comments,
+        };
 
-        message.success('Заявка успешно обновлена!');
+        try {
+            const response = await axios.put(`http://localhost:8080/tickets/${ticketId}`, updatedTicket);
+            setTicket(response.data); // Обновляем состояние заявки
+            message.success('Заявка успешно обновлена!');
+        } catch (error) {
+            console.error('Ошибка при обновлении заявки:', error);
+            message.error('Не удалось обновить заявку');
+        }
     };
+
+    if (!ticket) {
+        return <div>Загрузка...</div>;
+    }
 
     return (
         <Layout style={{ minHeight: '100vh', display: 'flex' }}>
@@ -120,17 +113,17 @@ const Edit = () => {
                         {
                             key: '1',
                             icon: <UserOutlined />,
-                            label: <Link to="/">Главная</Link>, // Ссылка на главную
+                            label: <Link to="/">Главная</Link>,
                         },
                         {
                             key: '2',
                             icon: <DatabaseOutlined />,
-                            label: <Link to="/tickets">Заявки</Link>, // Ссылка на страницу заявок
+                            label: <Link to="/tickets">Заявки</Link>,
                         },
                         {
                             key: '3',
                             icon: <FileAddOutlined />,
-                            label: <Link to={'/create'}>Создать</Link>
+                            label: <Link to={'/create'}>Создать</Link>,
                         },
                     ]}
                 />
@@ -168,7 +161,7 @@ const Edit = () => {
                     <div style={{ marginBottom: '16px' }}>
                         <h3>Статус:</h3>
                         <Select
-                            defaultValue={ticket.status} // Текущий статус заявки
+                            defaultValue={ticket.status}
                             style={{ width: 200 }}
                             onChange={handleStatusChange}
                         >
@@ -183,7 +176,7 @@ const Edit = () => {
                     <div style={{ marginBottom: '16px' }}>
                         <h3>Приоритет:</h3>
                         <Select
-                            defaultValue={ticket.priority} // Текущий приоритет заявки
+                            defaultValue={ticket.priority}
                             style={{ width: 200 }}
                             onChange={handlePriorityChange}
                         >
@@ -197,7 +190,7 @@ const Edit = () => {
                     <div style={{ marginBottom: '16px' }}>
                         <h3>Описание:</h3>
                         <TextArea
-                            defaultValue={ticket.description} // Текущее описание заявки
+                            defaultValue={ticket.description}
                             onChange={handleDescriptionChange}
                             rows={4}
                         />
@@ -207,16 +200,16 @@ const Edit = () => {
                     <div style={{ marginBottom: '16px' }}>
                         <h3>Назначена на:</h3>
                         <Input
-                            defaultValue={ticket.assignedTo} // Текущий назначенный
+                            defaultValue={ticket.assignedTo}
                             onChange={handleAssignedToChange}
                         />
                     </div>
 
                     {/* Поле для изменения комментариев */}
                     <div style={{ marginBottom: '16px' }}>
-                        <h3>Описание:</h3>
+                        <h3>Комментарии:</h3>
                         <TextArea
-                            defaultValue={ticket.comments} // Текущие комментарии
+                            defaultValue={ticket.comments}
                             onChange={handleCommentsChange}
                             rows={4}
                         />

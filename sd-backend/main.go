@@ -16,12 +16,12 @@ func main() {
 	}
 
 	// Регистрация маршрутов
-	http.HandleFunc("/register", handlers.RegisterHandler)
-	http.HandleFunc("/login", handlers.LoginHandler)
+	http.Handle("/login", middleware.EnableCORS(http.HandlerFunc(handlers.LoginHandler)))
+	http.Handle("/register", middleware.EnableCORS(http.HandlerFunc(handlers.RegisterHandler)))
 
-	// Защищенные маршруты
-	http.Handle("/tickets", middleware.AuthMiddleware(http.HandlerFunc(handlers.TicketsHandler)))
-	http.Handle("/tickets/", middleware.AuthMiddleware(http.HandlerFunc(handlers.TicketHandler)))
+	// Защищенные маршруты с CORS
+	http.Handle("/tickets", middleware.EnableCORS(middleware.AuthMiddleware(http.HandlerFunc(handlers.TicketsHandler))))
+	http.Handle("/tickets/", middleware.EnableCORS(middleware.AuthMiddleware(http.HandlerFunc(handlers.TicketHandler))))
 
 	// Запуск сервера
 	log.Println("Сервер запущен на http://localhost:8080")

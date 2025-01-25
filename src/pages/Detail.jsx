@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Descriptions, Tag, Button, Layout, Menu, theme, Select, message } from 'antd';
+import { Descriptions, Tag, Button, Layout, Menu, theme, Select, message, Spin } from 'antd';
 import { Link } from 'react-router-dom';
 import {
     MenuFoldOutlined,
@@ -9,40 +9,10 @@ import {
     DatabaseOutlined,
     FileAddOutlined,
 } from '@ant-design/icons';
+import axios from 'axios';
 
 const { Header, Sider, Content } = Layout;
 const { Option } = Select;
-
-// Пример данных о заявках (обычно данные загружаются с сервера)
-const tickets = [
-    {
-        id: '001', // ID заявки — строка
-        date: '2023-10-01',
-        status: 'Новая',
-        description: 'Заявка на ремонт компьютера',
-        priority: 'Высокий',
-        assignedTo: 'Иван Иванов',
-        comments: 'Не включается компьютер после грозы.',
-    },
-    {
-        id: '002', // ID заявки — строка
-        date: '2023-10-02',
-        status: 'В работе',
-        description: 'Заявка на установку ПО',
-        priority: 'Средний',
-        assignedTo: 'Петр Петров',
-        comments: 'Необходимо установить Microsoft Office.',
-    },
-    {
-        id: '003', // ID заявки — строка
-        date: '2023-10-03',
-        status: 'Завершённая',
-        description: 'Заявка на настройку сети',
-        priority: 'Низкий',
-        assignedTo: 'Сергей Сергеев',
-        comments: 'Настроить Wi-Fi в офисе.',
-    },
-];
 
 // Цвета для тегов статусов
 const statusColors = {
@@ -55,30 +25,64 @@ const statusColors = {
 const Details = () => {
     const { ticketId } = useParams(); // Получаем ID заявки из URL
     const [collapsed, setCollapsed] = useState(false);
-    const [selectedStatus, setSelectedStatus] = useState(''); // Состояние для выбранного статуса
+    const [ticket, setTicket] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [selectedStatus, setSelectedStatus] = useState('');
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
 
-    const ticket = tickets.find((ticket) => ticket.id === ticketId); // Находим заявку по ID
-    console.log('Найденная заявка:', ticket); // Отладочная информация
+    // Загрузка данных о заявке
+    useEffect(() => {
+        const fetchTicket = async () => {
+            try {
+                const token = localStorage.getItem('token'); // Получаем токен из localStorage
+                const response = await axios.get(`http://localhost:8080/tickets/${ticketId}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                setTicket(response.data);
+                setSelectedStatus(response.data.status); // Устанавливаем текущий статус
+            } catch (error) {
+                console.error('Ошибка при загрузке заявки:', error);
+                message.error('Не удалось загрузить данные о заявке');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchTicket();
+    }, [ticketId]);
+
+    // Обработчик изменения статуса
+    const handleStatusChange = async (value) => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(
+                `http://localhost:8080/tickets/${ticketId}`,
+                { status: value },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+            setSelectedStatus(value);
+            message.success('Статус заявки успешно обновлен');
+        } catch (error) {
+            console.error('Ошибка при обновлении статуса:', error);
+            message.error('Не удалось обновить статус заявки');
+        }
+    };
+
+    if (loading) {
+        return <Spin size="large" />;
+    }
 
     if (!ticket) {
         return <div>Заявка не найдена</div>;
     }
-
-    // Обработчик изменения статуса
-    const handleStatusChange = (value) => {
-        setSelectedStatus(value);
-        message.success(`Статус изменен на: ${value}`);
-        // Здесь можно добавить логику для обновления статуса на сервере
-    };
-
-    // Обработчик нажатия на кнопку "Редактировать"
-    const handleEdit = () => {
-
-
-    };
 
     return (
         <Layout style={{ minHeight: '100vh', display: 'flex' }}>
@@ -102,7 +106,7 @@ const Details = () => {
                         {
                             key: '3',
                             icon: <FileAddOutlined />,
-                            label: <Link to={'/create'}>Создать</Link>
+                            label: <Link to="/create">Создать</Link>, // Ссылка на страницу создания заявки
                         },
                     ]}
                 />
@@ -136,8 +140,9 @@ const Details = () => {
                 >
                     <h2>Информация о заявке #{ticket.id}</h2>
 
+                    {/* Выбор статуса */}
                     <Select
-                        defaultValue={ticket.status} // Текущий статус заявки
+                        value={selectedStatus}
                         style={{ width: 200, margin: 10 }}
                         onChange={handleStatusChange}
                     >
@@ -147,6 +152,7 @@ const Details = () => {
                         <Option value="Отменённая">Отменённая</Option>
                     </Select>
 
+                    {/* Детали заявки */}
                     <Descriptions bordered column={1}>
                         <Descriptions.Item label="Дата">{ticket.date}</Descriptions.Item>
                         <Descriptions.Item label="Статус">
@@ -167,20 +173,19 @@ const Details = () => {
                         </Descriptions.Item>
                         <Descriptions.Item label="Описание">{ticket.description}</Descriptions.Item>
                         <Descriptions.Item label="Назначена на">{ticket.assignedTo}</Descriptions.Item>
-                        <Descriptions.Item label="Описание">{ticket.comments}</Descriptions.Item>
+                        <Descriptions.Item label="Комментарии">{ticket.comments}</Descriptions.Item>
                     </Descriptions>
 
-
+                    {/* Кнопки */}
                     <div style={{ marginTop: '24px' }}>
                         <Link to="/tickets">
                             <Button type="primary">Вернуться к списку заявок</Button>
                         </Link>
-                        <Link to={'/ticket/' + ticket.id +'/edit'}>
-                        <Button type="primary" style={{marginLeft:'10px' }} onClick={handleEdit}>
-                            Редактировать
-                        </Button>
-                            </Link>
-
+                        <Link to={`/ticket/${ticket.id}/edit`}>
+                            <Button type="primary" style={{ marginLeft: '10px' }}>
+                                Редактировать
+                            </Button>
+                        </Link>
                     </div>
                 </Content>
             </Layout>

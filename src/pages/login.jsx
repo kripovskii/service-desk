@@ -1,6 +1,8 @@
 import React from 'react';
-import { Form, Input, Button, Card } from 'antd';
+import { Form, Input, Button, Card, message } from 'antd';
 import styled from 'styled-components';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 // Стили для контейнера с видео-фоном
 const AuthContainer = styled.div`
@@ -19,8 +21,8 @@ const VideoBackground = styled.video`
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Обеспечивает покрытие всего фона */
-    z-index: -1; /* Отправляем видео на задний план */
+    object-fit: cover;
+    z-index: -1;
 `;
 
 // Стили для карточки авторизации
@@ -32,21 +34,40 @@ const AuthCard = styled(Card)`
     display: flex;
     flex-direction: column;
     justify-content: center;
-    margin-right: 50px; /* Отступ справа */
-    background: rgba(255, 255, 255, 1.0); /* Полупрозрачный белый фон */
-    border-radius: 10px; /* Закругленные углы */
-    
+    margin-right: 50px;
+    background: rgba(255, 255, 255, 1.0);
+    border-radius: 10px;
+
     .ant-card-head-title {
-        font-size: 32px; /* Увеличиваем размер заголовка */
-        
-        color: #1890ff; /* Цвет заголовка */
+        font-size: 32px;
+        color: #1890ff;
     }
 `;
 
 const LoginPage = () => {
-    const onFinish = (values) => {
-        console.log('Received values of form: ', values);
-        // Здесь можно добавить логику для авторизации
+    const navigate = useNavigate();
+
+    const onFinish = async (values) => {
+        try {
+            // Отправляем данные для входа на сервер
+            const response = await axios.post('http://localhost:8080/login', {
+                username: values.username,
+                password: values.password,
+            });
+
+            // Сохраняем токен в localStorage
+            const token = response.data.token;
+            localStorage.setItem('token', token);
+
+            // Уведомляем пользователя об успешном входе
+            message.success('Успешный вход!');
+
+            // Перенаправляем пользователя на главную страницу
+            navigate('/');
+        } catch (error) {
+            console.error('Ошибка при входе:', error);
+            message.error('Неверный логин или пароль');
+        }
     };
 
     return (
@@ -57,7 +78,7 @@ const LoginPage = () => {
             </VideoBackground>
 
             {/* Карточка авторизации */}
-            <AuthCard title="TaskII" style={{fontFamily: 'monospace'}}>
+            <AuthCard title="TaskII" style={{ fontFamily: 'monospace' }}>
                 <Form
                     name="login_form"
                     initialValues={{ remember: true }}

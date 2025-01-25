@@ -9,6 +9,7 @@ import {
     FileAddOutlined,
     UploadOutlined,
 } from '@ant-design/icons';
+import axios from 'axios';
 
 const { Header, Sider, Content } = Layout;
 const { Option } = Select;
@@ -22,14 +23,13 @@ const CreateTicket = () => {
     const [description, setDescription] = useState(''); // Состояние для описания
     const [comments, setComments] = useState(''); // Состояние для комментариев
     const [fileList, setFileList] = useState([]); // Состояние для загруженных файлов
+    const [loading, setLoading] = useState(false); // Состояние для индикатора загрузки
     const {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
 
     // Обработчик изменения статуса
-    const handleStatusChange = (value) => {
-        setStatus(value);
-    };
+
 
     // Обработчик изменения приоритета
     const handlePriorityChange = (value) => {
@@ -52,33 +52,52 @@ const CreateTicket = () => {
     };
 
     // Обработчик создания заявки
-    const handleCreateTicket = () => {
+    const handleCreateTicket = async () => {
         if (!description) {
             message.error('Заполните обязательные поля: Описание.');
             return;
         }
 
-        // Создаем новую заявку
-        const newTicket = {
-            id: String(Math.floor(Math.random() * 1000)), // Генерация случайного ID
-            date: new Date().toISOString().split('T')[0], // Текущая дата
-            status,
-            description,
-            priority,
-            comments,
-            files: fileList.map((file) => file.name), // Сохраняем имена файлов
-        };
+        setLoading(true); // Включаем индикатор загрузки
 
-        // Здесь можно добавить логику для отправки данных на сервер
-        console.log('Новая заявка:', newTicket);
-        message.success('Заявка успешно создана!');
+        try {
+            const token = localStorage.getItem('token'); // Получаем токен из localStorage
+            const formData = new FormData();
 
-        // Очистка полей после создания
-        setStatus('Новая');
-        setPriority('Средний');
-        setDescription('');
-        setComments('');
-        setFileList([]);
+            // Добавляем данные заявки в FormData
+            formData.append('status', 'Новая');
+            formData.append('description', description);
+            formData.append('priority', priority);
+            formData.append('comments', comments);
+
+            // Добавляем файлы в FormData
+            fileList.forEach((file) => {
+                formData.append('files', file.originFileObj);
+            });
+
+            // Отправляем данные на сервер
+            const response = await axios.post('http://localhost:8080/tickets', formData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            message.success('Заявка успешно создана!');
+            console.log('Ответ сервера:', response.data);
+
+            // Очистка полей после успешного создания
+            setStatus('Новая');
+            setPriority('Средний');
+            setDescription('');
+            setComments('');
+            setFileList([]);
+        } catch (error) {
+            console.error('Ошибка при создании заявки:', error);
+            message.error('Не удалось создать заявку');
+        } finally {
+            setLoading(false); // Выключаем индикатор загрузки
+        }
     };
 
     return (
@@ -91,9 +110,9 @@ const CreateTicket = () => {
                     defaultSelectedKeys={['3']} // Выделяем пункт "Создать"
                     items={[
                         {
-                        key: '1',
-                        icon: <UserOutlined />,
-                        label: <Link to="/">Главная</Link>, // Ссылка на главную
+                            key: '1',
+                            icon: <UserOutlined />,
+                            label: <Link to="/">Главная</Link>, // Ссылка на главную
                         },
                         {
                             key: '2',
@@ -103,7 +122,7 @@ const CreateTicket = () => {
                         {
                             key: '3',
                             icon: <FileAddOutlined />,
-                            label: <Link to={'/create'}>Создать</Link>
+                            label: <Link to="/create">Создать</Link>, // Ссылка на страницу создания заявки
                         },
                     ]}
                 />
@@ -138,19 +157,6 @@ const CreateTicket = () => {
 
                     {/* Статус и приоритет на одной линии */}
                     <Flex gap={16} style={{ marginBottom: '10px' }}>
-                        <div>
-                            <h3>Статус:</h3>
-                            <Select
-                                defaultValue={status}
-                                style={{ width: 200 }}
-                                onChange={handleStatusChange}
-                            >
-                                <Option value="Новая">Новая</Option>
-                                <Option value="В работе">В работе</Option>
-                                <Option value="Завершённая">Завершённая</Option>
-                                <Option value="Отменённая">Отменённая</Option>
-                            </Select>
-                        </div>
                         <div>
                             <h3>Приоритет:</h3>
                             <Select
@@ -187,8 +193,6 @@ const CreateTicket = () => {
                         />
                     </div>
 
-
-
                     {/* Поле для загрузки файлов (Drag and Drop) */}
                     <div style={{ marginBottom: '16px' }}>
                         <h3>Загрузить файлы:</h3>
@@ -197,7 +201,6 @@ const CreateTicket = () => {
                             fileList={fileList}
                             onChange={handleFileUpload}
                             beforeUpload={() => false} // Отключаем автоматическую загрузку
-
                         >
                             <p className="ant-upload-drag-icon">
                                 <UploadOutlined />
@@ -217,6 +220,7 @@ const CreateTicket = () => {
                             type="primary"
                             style={{ marginLeft: '10px' }}
                             onClick={handleCreateTicket}
+                            loading={loading} // Индикатор загрузки
                         >
                             Создать заявку
                         </Button>
