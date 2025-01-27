@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"log"
 	"net/http"
 	"sd/models"
 	"sd/storage"
 	"time"
 )
 
-var jwtKey = []byte("my_secret_key")
+var jwtKey = []byte("tickets")
 
 // RegisterHandler обрабатывает регистрацию пользователя
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -45,24 +46,29 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+		log.Println("Ошибка при декодировании JSON:", err)
 		http.Error(w, "Неверный формат данных", http.StatusBadRequest)
 		return
 	}
 
-	// Поиск пользователя в базе данных
+	log.Println("Попытка входа пользователя:", credentials.Username)
+
 	user, err := storage.GetUserByUsername(credentials.Username)
 	if err != nil {
+		log.Println("Пользователь не найден:", credentials.Username)
 		http.Error(w, "Пользователь не найден", http.StatusUnauthorized)
 		return
 	}
 
-	// Проверка пароля
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(credentials.Password)); err != nil {
+		log.Println("Неверный пароль для пользователя:", credentials.Username)
 		http.Error(w, "Неверный пароль", http.StatusUnauthorized)
 		return
 	}
 
-	// Создание JWT
+	log.Println("Успешный вход пользователя:", credentials.Username)
+
+	// Создание JWT и возврат токена
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &models.Claims{
 		Username: user.Username,
@@ -73,11 +79,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
+		log.Println("Ошибка при создании токена:", err)
 		http.Error(w, "Ошибка при создании токена", http.StatusInternalServerError)
 		return
 	}
 
-	// Возврат токена
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
 }

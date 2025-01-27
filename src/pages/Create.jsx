@@ -28,9 +28,6 @@ const CreateTicket = () => {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken();
 
-    // Обработчик изменения статуса
-
-
     // Обработчик изменения приоритета
     const handlePriorityChange = (value) => {
         setPriority(value);
@@ -58,14 +55,19 @@ const CreateTicket = () => {
             return;
         }
 
+        const token = localStorage.getItem('token'); // Получаем токен из localStorage
+        if (!token) {
+            message.error('Требуется вход в систему');
+            return;
+        }
+
         setLoading(true); // Включаем индикатор загрузки
 
         try {
-            const token = localStorage.getItem('token'); // Получаем токен из localStorage
             const formData = new FormData();
 
             // Добавляем данные заявки в FormData
-            formData.append('status', 'Новая');
+            formData.append('status', status);
             formData.append('description', description);
             formData.append('priority', priority);
             formData.append('comments', comments);
@@ -94,7 +96,13 @@ const CreateTicket = () => {
             setFileList([]);
         } catch (error) {
             console.error('Ошибка при создании заявки:', error);
-            message.error('Не удалось создать заявку');
+            if (error.response) {
+                // Ошибка от сервера
+                message.error(`Ошибка: ${error.response.data}`);
+            } else {
+                // Ошибка сети или другая ошибка
+                message.error('Не удалось создать заявку');
+            }
         } finally {
             setLoading(false); // Выключаем индикатор загрузки
         }
